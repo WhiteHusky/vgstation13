@@ -36,9 +36,12 @@
 	if(current_volume >= 0.9 * reagent_size)
 		damage += 0.1 // damage from being too full
 
-	// process contents of stomach, slowly moving reagents to bloodstream
+	// process contents of stomach.
 	for(var/datum/reagent/R in reagents_holder.reagents.reagent_list)
-		R.digest(owner, src)
+		if(R.id == BLOOD)
+			owner.inject_blood(reagents_holder, R.volume)
+		else
+			R.metabolize(owner, src)
 
 	damage = Clamp(damage - 0.02, 0, INFINITY) // natural healing - ensures that damage is non-negative
 

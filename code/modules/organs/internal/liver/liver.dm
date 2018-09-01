@@ -56,9 +56,8 @@
 				if(owner.reagents.has_reagent(toxin))
 					owner.adjustToxLoss(0.3 * process_accuracy)
 
-/datum/organ/internal/liver/proc/metabolize_reagent(var/reagent_id, var/metabolism)
-	var/mob/living/carbon/human/H=owner
+/datum/organ/internal/liver/proc/metabolize_reagent(var/datum/reagents/holder, var/reagent_id, var/metabolism)
 	var/reagent_efficiency = 1
 	if(reagent_id in reagent_efficiencies)
 		reagent_efficiency = reagent_efficiencies[reagent_id]
-	H.reagents.remove_reagent(reagent_id, metabolism * efficiency * reagent_efficiency)
+	holder.remove_reagent(reagent_id, metabolism * efficiency * reagent_efficiency)

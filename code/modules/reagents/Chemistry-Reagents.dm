@@ -123,16 +123,17 @@
 
 	src = null
 
-/datum/reagent/proc/metabolize(var/mob/living/M)
+/datum/reagent/proc/metabolize(var/mob/living/M, var/datum/organ/internal/stomach/S)
 	tick++
 	if(ishuman(M))
 		var/mob/living/carbon/human/H = M
 		var/datum/organ/internal/liver/L = H.internal_organs_by_name["liver"]
 		if(L)
-			L.metabolize_reagent(src.id, custom_metabolism)
+			L.metabolize_reagent(holder, src.id, custom_metabolism)
 			return
 	holder.remove_reagent(src.id, custom_metabolism) // If we aren't human, we don't have a liver, so just metabolize it the old fashioned way.
 
+/* STOMACH RUNS METABOLIZE INSTEAD
 // process the chemicals within the stomach, called by /datum/organ/internal/stomach in process() on all stomach contents
 // takes the mob and stomach as a mandatory argument
 /datum/reagent/proc/digest(var/mob/living/carbon/human/M, var/datum/organ/internal/stomach/S)
@@ -145,6 +146,7 @@
 		move_amount = (volume / S.current_volume) * digestion_rate * S.base_intake_rate
 	// move part or all of the stomach contents to the body
 	return S.get_reagents().trans_id_to(M, id, move_amount)
+*/
 
 /datum/reagent/proc/on_mob_life(var/mob/living/M, var/alien)
 	set waitfor = 0
@@ -600,15 +602,12 @@
 	density = 1.49033
 	specheatcap = 0.55536
 
-/datum/reagent/anti_toxin/digest(var/mob/living/carbon/human/M, var/datum/organ/internal/stomach/S)
-	if(volume >= 15)
-		S.damage += 0.1
-	return ..(M, S)
-
-/datum/reagent/anti_toxin/on_mob_life(var/mob/living/M)
-
+/datum/reagent/anti_toxin/on_mob_life(var/mob/living/M, var/datum/organ/internal/stomach/S)
 	if(..())
 		return 1
+	
+	if(S && volume >= 15)
+		S.damage += 0.1
 
 	M.drowsyness = max(M.drowsyness - 2 * REM, 0)
 	if(holder.has_any_reagents(list(TOXIN, PLANTBGONE, SOLANINE)))
@@ -2071,8 +2070,9 @@
 					H.update_inv_shoes(0)
 		M.clean_blood()
 
-/datum/reagent/space_cleaner/digest(var/mob/living/carbon/human/M, var/datum/organ/internal/stomach/S)
-	S.damage += 1
+/datum/reagent/space_cleaner/on_mob_life(var/mob/living/M, var/datum/organ/internal/stomach/S)
+	if(S)
+		S.damage += 1
 	return ..(M, S)
 
 /datum/reagent/space_cleaner/bleach
@@ -2661,14 +2661,13 @@
 	density = 1.92
 	specheatcap = 5.45
 
-/datum/reagent/imidazoline/digest(var/mob/living/carbon/human/M, var/datum/organ/internal/stomach/S)
-	S.damage = Clamp(S.damage - 0.5, 0, INFINITY)
-	return ..(M, S)
-
-/datum/reagent/imidazoline/on_mob_life(var/mob/living/M)
+/datum/reagent/imidazoline/on_mob_life(var/mob/living/M, var/datum/organ/internal/stomach/S)
 
 	if(..())
 		return 1
+	
+	if(S)
+		S.damage = Clamp(S.damage - 0.5, 0, INFINITY)
 
 	M.eye_blurry = max(M.eye_blurry - 5, 0)
 	M.eye_blind = max(M.eye_blind - 5, 0)
@@ -4307,9 +4306,17 @@
 	density = rand(12,48)
 	specheatcap = rand(25,2500)/100
 
-/datum/reagent/discount/proc/handle_discount(var/mob/living/carbon/human/H, var/modifier = 1)
+/datum/reagent/discount/on_mob_life(var/mob/living/carbon/human/H, var/datum/organ/internal/stomach/S) // In case it was injected.
+	if(..())
+		return TRUE
+	
 	if(!istype(H))
 		return FALSE
+	var/modifier
+	if(S)
+		modifier = 1
+	else
+		modifier = 2
 	var/stage_1 = 20/modifier
 	var/stage_2 = 35/modifier
 	switch(volume)
@@ -4335,15 +4342,7 @@
 				H.adjustToxLoss(0.13 * modifier)
 				holder.remove_reagent(src.id, 0.5 * FOOD_METABOLISM)
 	return TRUE
-
-/datum/reagent/discount/digest(var/mob/living/carbon/human/M, var/datum/organ/internal/stomach/S)
-	handle_discount(M)
-	return ..(M, S)
-
-/datum/reagent/discount/on_mob_life(var/mob/living/carbon/human/M) // In case it was injected.
-	if(..())
-		return TRUE
-	handle_discount(M, 2)
+	
 
 /datum/reagent/irradiatedbeans
 	name = "Irradiated Beans"
@@ -4441,22 +4440,15 @@
 	specheatcap = 10.55
 	digestion_rate = 0.1 // Slow digestion mostly because discount is usually eaten.
 
-/datum/reagent/peptobismol/proc/handle_peptobismol(var/mob/living/M)
+/datum/reagent/peptobismol/on_mob_life(var/mob/living/M)
+	if(..())
+		return TRUE
 	M.drowsyness = max(M.drowsyness - 2 * REM, 0)
 	if(holder.has_reagent("discount"))
 		holder.remove_reagent("discount", 2 * REM)
 	var/lucidmod = M.sleeping ? 3 : M.lying + 1
 	M.hallucination = max(0, M.hallucination - 5 * REM * lucidmod)
 	M.adjustToxLoss(-2 * REM)
-
-/datum/reagent/peptobismol/digest(var/mob/living/carbon/human/M, var/datum/organ/internal/stomach/S)
-	handle_peptobismol(M)
-	return ..(M, S)
-
-/datum/reagent/peptobismol/on_mob_life(var/mob/living/M)
-	if(..())
-		return TRUE
-	handle_peptobismol(M)
 
 /datum/reagent/clottingagent
 	name = "Clotting Agent"
@@ -6545,13 +6537,11 @@ var/global/list/tonio_doesnt_remove=list("tonio", "blood")
 	reagent_state = LIQUID
 	color = "#12A7C9"
 
-/datum/reagent/fishbleach/digest(var/mob/living/carbon/human/M, var/datum/organ/internal/stomach/S)
-	S.damage += 1
-	return ..(M, S)
-
-/datum/reagent/fishbleach/on_mob_life(var/mob/living/carbon/human/H)
+/datum/reagent/fishbleach/on_mob_life(var/mob/living/carbon/human/H, var/datum/organ/internal/stomach/S)
 	if(..())
 		return 1
+	if(S)
+		S.damage += 1
 	H.color = "#12A7C9"
 	return
 

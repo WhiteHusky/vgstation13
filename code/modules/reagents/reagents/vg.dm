@@ -15,27 +15,19 @@ var/global/list/charcoal_doesnt_remove=list(
 	custom_metabolism = 0.06
 	digestion_rate = 0.1 // Slow to move into the blood stream so stomach contents can actually be processed through.
 
-/datum/reagent/charcoal/digest(var/mob/living/carbon/human/M, var/datum/organ/internal/stomach/S)
-	if(prob(5))
-		M.vomit()
+/datum/reagent/charcoal/on_mob_life(var/mob/living/M, var/datum/organ/internal/stomach/S)
+	if(S && prob(5))
+		var/mob/living/carbon/human/H = M
+		H.vomit()
 		return
-	purge_from_reagent_source(S.get_reagents())
-	return ..(M, S)
-
-/datum/reagent/charcoal/proc/purge_from_reagent_source(var/datum/reagents/R)
-	if(!R)
-		return
+	M.adjustToxLoss(-2*REM)
 	var/found_any = FALSE
-	for(var/datum/reagent/reagent in R.reagent_list)
+	for(var/datum/reagent/reagent in holder.reagent_list)
 		if(reagent.id in charcoal_doesnt_remove)
 			continue
-		R.remove_reagent(reagent.id, 15*REM)
+		holder.remove_reagent(reagent.id, 15*REM)
 		found_any = TRUE
 
 	if (!found_any)
-		R.remove_reagent(CHARCOAL, volume)
-
-/datum/reagent/charcoal/on_mob_life(var/mob/living/M)
-	purge_from_reagent_source(M.reagents)
-	M.adjustToxLoss(-2*REM)
+		holder.remove_reagent(CHARCOAL, volume)
 	..()
